@@ -1,20 +1,33 @@
 import scrapy
 
 
-class QuotesSpider(scrapy.Spider):
-    name = "quotes"
-
-    def start_requests(self):
-        urls = [
-            'http://quotes.toscrape.com/page/1/',
-            'http://quotes.toscrape.com/page/2/',
-        ]
-        for url in urls:
-            yield scrapy.Request(url=url, callback=self.parse)
+class MovieSpidet(scrapy.Spider):
+    name = "movies"
+    start_urls = [
+        'https://www.imdb.com/movies-coming-soon/',
+    ]
 
     def parse(self, response):
-        page = response.url.split("/")[-2]
-        filename = 'quotes-%s.html' % page
-        with open(filename, 'wb') as f:
-            f.write(response.body)
-        self.log('Saved file %s' % filename)
+        for film in response.css('div.list_item'):
+            
+            try:
+                trailer = film.css('td.overview-bottom a.title-trailer').attrib['href']
+                genre =  film.css('p.cert-runtime-genre span::text').getall()
+                genre = genre.remove('|')
+            except:
+                pass
+            
+            yield {
+                'title': film.css('h4 a::text').get(),
+                'image': film.css('div.image img').attrib['src'],
+                'time' : film.css('p.cert-runtime-genre time::text').get(),
+                'trailer' : response.urljoin(trailer),
+                'genre' : genre,
+            }
+            
+        next_page = response.css('div.see-more a')[1].attrib['href']
+        year, month = next_page.split('/')[-2].split('-')
+        
+        if next_page is not None and year != '2022':
+            next_page = response.urljoin(next_page)
+            yield scrapy.Request(next_page, callback=self.parse)
