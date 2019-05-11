@@ -12,22 +12,25 @@ class MovieSpidet(scrapy.Spider):
             
             try:
                 trailer = film.css('td.overview-bottom a.title-trailer').attrib['href']
-                genre =  film.css('p.cert-runtime-genre span::text').getall()
-                genre = genre.remove('|')
-            except:
-                pass
+                trailer = response.urljoin(trailer)
+            except KeyError:
+                self.log("Key error.")
+                trailer = None            
+            
+            genre = film.css('p.cert-runtime-genre span::text').getall()
+            genre = [g for g in genre if g != '|']
             
             yield {
                 'title': film.css('h4 a::text').get(),
                 'image': film.css('div.image img').attrib['src'],
                 'time' : film.css('p.cert-runtime-genre time::text').get(),
-                'trailer' : response.urljoin(trailer),
+                'trailer' : trailer,
                 'genre' : genre,
             }
             
         next_page = response.css('div.see-more a')[1].attrib['href']
         year, month = next_page.split('/')[-2].split('-')
         
-        if next_page is not None and year != '2022':
+        if next_page is not None and year != '2020' and month != '05':
             next_page = response.urljoin(next_page)
             yield scrapy.Request(next_page, callback=self.parse)
